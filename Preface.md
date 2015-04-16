@@ -1,0 +1,370 @@
+:ref: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/
+
+[preface]
+== Preface
+
+The world is swimming in data.  For years we have been simply overwhelmed by
+the quantity of data flowing through and produced by our systems.  Existing
+technology has focused on how to store and structure warehouses full of data.
+That's all well and good--until you actually need to make decisions in
+real time informed by that data.
+
+Elasticsearch is a distributed, scalable, real-time search and analytics engine.
+It enables you to search, analyze, and explore your data, often in ways that
+you did not anticipate at the start of a project.  It exists because raw data
+sitting on a hard drive is just not useful.
+
+Whether you need full-text search, real-time analytics of structured data, or
+a combination of the two, this book introduces you to the fundamental
+concepts required to start working with Elasticsearch at a basic level. With
+these foundations laid, it will move on to more-advanced search techniques,
+which you will need to shape the search experience to fit your requirements.
+
+Elasticsearch is not just about full-text search. We explain structured
+search, analytics, the complexities of dealing with human language,
+geolocation, and relationships. We will also discuss how best to model your
+data to take advantage of the horizontal scalability of Elasticsearch, and how
+to configure and monitor your cluster when moving to production.
+
+=== Who Should Read This Book
+
+This book is for anybody who wants to put their data to work.  It doesn't
+matter whether you are starting a new project and have the flexibility to
+design the system from the ground up, or whether you need to give new life to
+a legacy system.  Elasticsearch will help you to solve existing problems and
+open the way to new features that you haven't yet considered.
+
+This book is suitable for novices and experienced users alike. We expect you
+to have some programming background and, although not required, it would help
+to have used SQL and a relational database. We explain concepts from first
+principles, helping novices to gain a sure footing in the complex world of
+search.
+
+The reader with a search background will also benefit from this book.
+Elasticsearch is a new technology that has some familiar concepts.  The more
+experienced user will gain an understanding of how those concepts have been
+implemented and how they interact in the context of Elasticsearch. Even  the
+early chapters contain nuggets of information that will be useful to the
+more advanced user.
+
+Finally, maybe you are in DevOps. While the other departments are stuffing
+data into Elasticsearch as fast as they can, you're the one charged with
+stopping their servers from bursting into flames. Elasticsearch scales
+effortlessly, as long as your users play within the rules. You need to know
+how to set up a stable cluster before going into production, and then be able to
+recognize the warning signs at three in the morning in order to prevent
+catastrophe. The earlier chapters may be of less interest to you, but the last
+part of the book is essential reading--all you need to know to avoid
+meltdown.
+
+
+=== Why We Wrote This Book
+
+We wrote this book because Elasticsearch needs a narrative.  The existing
+reference documentation is excellent--as long as you know what you are
+looking for. It assumes that you are intimately familiar with information-retrieval concepts, distributed systems, the query DSL, and a host of other
+topics.
+
+This book makes no such assumptions.  It has been written so that a complete
+beginner--to both search and distributed systems--can pick it up and start
+building a prototype within a few chapters.
+
+We have taken a problem-based approach: this is the problem, how do I solve
+it, and what are the trade-offs of the alternative solutions? We start with the
+basics, and each chapter builds on the preceding ones, providing practical
+examples and explaining the theory where necessary.
+
+The existing reference documentation explains _how_ to use features.  We want
+this book to explain _why_ and _when_ to use various features.
+
+=== Elasticsearch Version
+
+The explanations and code examples in this book target the latest version of
+Elasticsearch available at the time of going to print--version 1.4.0--but
+Elasticsearch is a rapidly evolving project.  The online version of this book
+will be updated as Elasticsearch changes.
+
+You can find the latest version of this http://www.elasticsearch.org/guide/[book online].
+
+You can also track the changes that have been made by visiting the https://github.com/elasticsearch/elasticsearch-definitive-guide/[GitHub repository].
+
+
+=== How to Read This Book
+
+Elasticsearch tries very hard to make the complex simple, and to a large
+degree it succeeds in this. That said, search and distributed systems _are_
+complex, and sooner or later you have to get to grips with some of the
+complexity in order to take full advantage of Elasticsearch.
+
+Complexity, however, is not the same as magic.  We tend to view complex
+systems as magical black boxes that respond to incantations, but there are
+usually simple processes at work within. Understanding these processes helps
+to dispel the magic--instead of hoping that the black box will do what you
+want, understanding gives you certainty and clarity.
+
+This is a definitive guide: we help you not only to get started with
+Elasticsearch, but also to tackle the deeper more, interesting topics. These include <<distributed-cluster>>, <<distributed-docs>>,
+<<distributed-search>>, and <<inside-a-shard>>, which are not essential
+reading but do give you a solid understanding of the internals.
+
+The first part of the book should be read in order as each chapter builds on
+the previous one (although you can skim over the chapters just mentioned).  Later chapters such as <<proximity-matching>> and <<partial-matching>>
+are more standalone and can be referred to as needed.
+
+=== Navigating This Book
+
+This book is divided into seven parts:
+
+ifndef::es_build[]
+
+*  Chapters pass:[<a href="#intro">1</a>] through pass:[<a href="#inside-a-shard">11</a>]
+   provide an introduction to Elasticsearch. They
+   explain how to get your data in and out of Elasticsearch, how Elasticsearch
+   interprets the data in your documents, how basic search works, and how to
+   manage indices. By the end of this section, you will already be able to
+   integrate your application with Elasticsearch. Chapters pass:[<a href="#distributed-cluster">2</a>], pass:[<a href="#distributed-docs">4</a>], pass:[<a href="#distributed-search">9</a>], and pass:[<a href="#inside-a-shard">11</a>]
+   are supplemental chapters that provide more insight into the distributed
+   processes at work, but are not required reading.
+
+*  Chapters pass:[<a href="#structured-search">12</a>] through pass:[<a href="#controlling-relevance">17</a>]
+   offer a deep dive into search--how to index and
+   query your data to allow  you to take advantage of more-advanced concepts
+   such as word proximity, and partial matching. You will understand how
+   relevance works and how to control it to ensure that the best results are
+   on the first page.
+
+*  Chapters pass:[<a href="#language-intro">18</a>] through pass:[<a href="#fuzzy-matching">24</a>]
+   tackle the thorny subject of dealing with human
+   language through effective use of analyzers and queries. We start with
+   an easy approach to language analysis before diving into the complexities
+   of language, alphabets, and sorting. We cover stemming, stopwords, synonyms,
+   and fuzzy matching.
+
+*  Chapters pass:[<a href="#aggs-high-level">25</a>] through pass:[<a href="#controlling-memory">35</a>]
+   discuss aggregations and analytics--ways to summarize and group your data to show overall trends.
+
+*  Chapters pass:[<a href="#geopoints">36</a>] through pass:[<a href="#geo-shapes">39</a>]
+   present the two approaches to geolocation
+   supported by Elasticsearch: lat/lon geo-points, and complex geo-shapes.
+
+*  Chapters pass:[<a href="#relations">40</a>] through pass:[<a href="#scale">43</a>]
+   talk about how to model your data to work
+   most efficiently with Elasticsearch.  Representing relationships
+   between entities is not as easy in a search engine as it is in
+   a relational database, which has been designed for that purpose.
+   These chapters also explain how to suit your index design to
+   match the flow of data through your system.
+
+*  Finally, Chapters pass:[<a href="#cluster-admin">44</a>] through pass:[<a href="#post_deploy">46</a>]
+   discuss moving to production: the important configurations, what to monitor, and how to diagnose and prevent problems.
+
+endif::es_build[]
+
+ifdef::es_build[]
+
+*  Chapters <<intro>> through <<inside-a-shard>> provide an introduction to Elasticsearch. They
+   explain how to get your data in and out of Elasticsearch, how Elasticsearch
+   interprets the data in your documents, how basic search works, and how to
+   manage indices. By the end of this section, you will already be able to
+   integrate your application with Elasticsearch. Chapters
+   <<distributed-cluster>>, <<distributed-docs>>, <<distributed-search>>, and <<inside-a-shard>>
+   are supplemental chapters that provide more insight into the distributed
+   processes at work, but are not required reading.
+
+*  Chapters <<structured-search>> through <<controlling-relevance>>
+   offer a deep dive into search--how to index and
+   query your data to allow  you to take advantage of more-advanced concepts
+   such as word proximity, and partial matching. You will understand how
+   relevance works and how to control it to ensure that the best results are
+   on the first page.
+
+*  Chapters <<language-intro>> through <<fuzzy-matching>>
+   tackle the thorny subject of dealing with human
+   language through effective use of analyzers and queries. We start with
+   an easy approach to language analysis before diving into the complexities
+   of language, alphabets, and sorting. We cover stemming, stopwords, synonyms,
+   and fuzzy matching.
+
+*  Chapters <<aggs-high-level>> through <<controlling-memory>>
+   discuss aggregations and analytics--ways to summarize and group your data to show overall trends.
+
+*  Chapters <<geopoints>> through <<geo-shapes>>
+   present the two approaches to geolocation
+   supported by Elasticsearch: lat/lon geo-points, and complex geo-shapes.
+
+*  Chapters <<relations>> through <<scale>>
+   talk about how to model your data to work
+   most efficiently with Elasticsearch.  Representing relationships
+   between entities is not as easy in a search engine as it is in
+   a relational database, which has been designed for that purpose.
+   These chapters also explain how to suit your index design to
+   match the flow of data through your system.
+
+*  Finally, Chapters <<cluster-admin>> through <<post_deploy>>
+   discuss moving to production: the important configurations, what to monitor, and how to diagnose and prevent problems.
+
+endif::es_build[]
+
+There are three topics that we do not cover in this book, because they are evolving rapidly and anything we
+write will soon be out-of-date:
+
+* Highlighting of result snippets: see http://bit.ly/151kOhG[Highlighting].
+* _Did-you-mean_ and _search-as-you-type_ suggesters: see http://bit.ly/1INTMa9[Suggesters].
+* Percolation--finding queries which match a document: see http://bit.ly/1KNs3du[Percolators].
+
+=== Online Resources
+
+Because this book focuses on problem solving in Elasticsearch rather than syntax, we sometimes reference the existing documentation for a complete
+list of parameters.  The reference documentation can be found here:
+
+http://www.elasticsearch.org/guide/
+
+=== Conventions Used in This Book
+
+The following typographical conventions are used in this book:
+
+_Italic_:: Indicates emphasis, and new terms or concepts.
+
++Constant width+:: Used for program listings, as well as within paragraphs to refer to program elements such as variable or function names, databases, data types, environment variables, statements, and keywords.
+
+
+[TIP]
+====
+This icon signifies a tip, suggestion.
+====
+
+[NOTE]
+====
+This icon signifies a general note.
+====
+
+[WARNING]
+====
+This icon indicates a warning or caution.
+====
+
+=== Using Code Examples
+////
+Do not edit this section.
+////
+
+This book is here to help you get your job done. In general, if example code is offered with this book, you may use it in your programs and documentation. You do not need to contact us for permission unless you’re reproducing a significant portion of the code. For example, writing a program that uses several chunks of code from this book does not require permission. Selling or distributing a CD-ROM of examples from O’Reilly books does require permission. Answering a question by citing this book and quoting example code does not require permission. Incorporating a significant amount of example code from this book into your product’s documentation does require permission.
+
+We appreciate, but do not require, attribution. An attribution usually includes the title, author, publisher, and ISBN. For example: _Elasticsearch: The Definitive Guide_ by Clinton Gormley and Zachary Tony (O’Reilly). Copyright 2015 Elasticsearch BV, 978-1-449-35854-9.
+
+ifndef::es_build[]
+If you feel your use of code examples falls outside fair use or the permission given above, feel free to contact us at
+pass:[<a class="email" href="mailto:permissions@oreilly.com"><em>permissions@oreilly.com</em></a>].
+endif::es_build[]
+
+ifdef::es_build[]
+If you feel your use of code examples falls outside fair use or the permission given above, feel free to contact us at
+mailto:permissions@oreilly.com[].
+endif::es_build[]
+
+ifndef::es_build[]
+=== Safari® Books Online
+////
+Do not edit this section.
+////
+[role = "safarienabled"]
+[NOTE]
+====
+pass:[<a href="http://safaribooksonline.com" class="orm:hideurl:ital"><em class="hyperlink">Safari Books Online</em></a>] is an on-demand digital library that delivers expert pass:[<a href="https://www.safaribooksonline.com/explore/" class="orm:hideurl">content</a>] in both book and video form from the world&#8217;s leading authors in technology and business.
+====
+
+Technology professionals, software developers, web designers, and business and creative professionals use Safari Books Online as their primary resource for research, problem solving, learning, and certification training.
+
+++++
+<p>Safari Books Online offers a range of <a href="https://www.safaribooksonline.com/pricing/" class="orm:hideurl">plans and pricing</a> for <a href="https://www.safaribooksonline.com/enterprise/" class="orm:hideurl">enterprise</a>, <a href="https://www.safaribooksonline.com/government/" class="orm:hideurl">government</a>, <a href="https://www.safaribooksonline.com/academic-public-library/" class="orm:hideurl">education</a>, and individuals.</p>
+
+<p>Members have access to thousands of books, training videos, and prepublication manuscripts in one fully searchable database from publishers like O&#8217;Reilly Media, Prentice Hall Professional, Addison-Wesley Professional, Microsoft Press, Sams, Que, Peachpit Press, Focal Press, Cisco Press, John Wiley &amp; Sons, Syngress, Morgan Kaufmann, IBM Redbooks, Packt, Adobe Press, FT Press, Apress, Manning, New Riders, McGraw-Hill, Jones &amp; Bartlett, Course Technology, and hundreds <a href="https://www.safaribooksonline.com/our-library/" class="orm:hideurl">more</a>. For more information about Safari Books Online, please visit us <a class="orm:hideurl">online</a>.</p>
+++++
+
+=== How to Contact Us
+////
+Do not edit this section.
+////
+Please address comments and questions concerning this book to the publisher:
+
+++++
+<ul class="simplelist">
+  <li>O’Reilly Media, Inc.</li>
+  <li>1005 Gravenstein Highway North</li>
+  <li>Sebastopol, CA 95472</li>
+  <li>800-998-9938 (in the United States or Canada)</li>
+  <li>707-829-0515 (international or local)</li>
+  <li>707-829-0104 (fax)</li>
+</ul>
+++++
+
+We have a web page for this book, where we list errata, examples, and any additional information. You can access this page at link:$$http://oreil.ly/1ylQuK6$$[].
+
+////
+Don't forget to update the link above.
+////
+
+To comment or ask technical questions about this book, send email to pass:[<a class="email" href="mailto:bookquestions@oreilly.com"><em>bookquestions@oreilly.com</em></a>].
+
+For more information about our books, courses, conferences, and news, see our website at link:$$http://www.oreilly.com$$[].
+
+Find us on Facebook: link:$$http://facebook.com/oreilly$$[]
+
+Follow us on Twitter: link:$$http://twitter.com/oreillymedia$$[]
+
+Watch us on YouTube: link:$$http://www.youtube.com/oreillymedia$$[]
+
+endif::es_build[]
+
+=== Acknowledgments
+
+Why are spouses always relegated to a _last but not least_ disclaimer?
+There is no doubt in our minds that the two people most deserving of our
+gratitude are Xavi Sánchez Catalán, Clinton's long-suffering husband, and
+Genevieve Flanders, Zach's fiancée. They have looked after us and loved us,
+picked up the slack, put up with our absence and our endless moaning about how
+long the book was taking, and, most importantly, they are still here.
+
+Thank you to Shay Banon for creating Elasticsearch in the first place, and to
+Elasticsearch the company for supporting our work on the book.  Our colleagues
+at Elasticsearch deserve a big thank you as well. They have helped us pick
+through the innards of Elasticsearch to really understand how it works, and
+they have been responsible for adding improvements and fixing inconsistencies
+that were brought to light by writing about them.
+
+Two colleagues in particular deserve special mention:
+
+*   Robert Muir patiently shared his deep knowledge of search in general and
+    Lucene in particular. Several chapters are the direct result of joining
+    his pearls of wisdom into paragraphs.
+
+*   Adrien Grand dived deep into the code to answer question after question,
+    and checked our explanations to ensure they make sense.
+
+Thank you to O'Reilly for undertaking this project and working with us to make
+this book available online for free, to our editor Brian Anderson for cajoling
+us along gently, and to our kind and gentle reviewers Benjamin Devèze, Ivan
+Brusic, and Leo Lapworth.  Your reassurances kept us hopeful.
+
+Finally, we would like to thank our readers, some of whom we know only by
+their GitHub identities, who have taken the time to report problems, provide
+corrections, or suggest improvements:
+
+Adam Canady, Adam Gray, Alexander Kahn, Alexander Reelsen, Alaattin
+Kahramanlar, Ambrose Ludd, Anna Beyer, Andrew Bramble,  Baptiste Cabarrou,
+Bart Vandewoestyne, Bertrand Dechoux, Brian Wong, Brooke Babcock, Charles
+Mims, Chris Earle, Chris Gilmore, Christian Burgas, Colin Goodheart-Smithe,
+Corey Wright,  Daniel Wiesmann, David Pilato, Duncan Angus Wilkie, Florian
+Hopf, Gavin Foo, Gilbert Chang, Grégoire Seux, Gustavo Alberola, Igal Sapir,
+Iskren Ivov Chernev, Itamar Syn-Hershko, Jan Forrest, Jānis Peisenieks,
+Japheth Thomson, Jeff Myers, Jeff Patti, Jeremy Falling, Jeremy Nguyen, J.R.
+Heard, Joe Fleming, Jonathan Page, Joshua Gourneau, Josh Schneier, Jun Ohtani,
+Keiji Yoshida, Kieren Johnstone, Kim Laplume, Kurt Hurtado, Laszlo Balogh,
+londocr, losar, Lucian Precup, Lukáš Vlček, Malibu Carl, Margirier Laurent,
+Martijn Dwars, Matt Ruzicka, Mattias Pfeiffer, Mehdy Amazigh, mhemani, Michael
+Bonfils, Michael Bruns, Michael Salmon, Michael Scharf , Mitar Milutinović,
+Mustafa K. Isik, Nathan Peck, Patrick Peschlow, Paul Schwarz, Pieter Coucke,
+Raphaël Flores, Robert Muir, Ruslan Zavacky, Sanglarsh Boudhh, Santiago
+Gaviria, Scott Wilkerson, Sebastian Kurfürst, Sergii Golubev, Serkan Kucukbay,
+Thierry Jossermoz, Thomas Cucchietti, Tom Christie, Ulf Reimers, Venkat
+Somula, Wei Zhu, Will Kahn-Greene, and Yuri Bakumenko.

@@ -1,0 +1,12 @@
+[[cluster-admin]]
+== Monitoring
+
+include::500_Cluster_Admin/10_intro.asciidoc[]
+
+include::500_Cluster_Admin/15_marvel.asciidoc[]
+
+include::500_Cluster_Admin/20_health.asciidoc[]
+
+include::500_Cluster_Admin/30_node_stats.asciidoc[]
+
+include::500_Cluster_Admin/40_other_stats.asciidoc[]

@@ -1,0 +1,179 @@
+[[nested-aggregation]]
+=== Nested Aggregations
+
+In the same way as we need to use the special `nested` query ((("aggregations", "nested")))((("nested aggregation")))to gain access to
+nested objects at search time, the dedicated `nested` aggregation allows us to
+aggregate fields in nested objects:
+
+[source,json]
+--------------------------
+GET /my_index/blogpost/_search?search_type=count
+{
+  "aggs": {
+    "comments": { <1>
+      "nested": {
+        "path": "comments"
+      },
+      "aggs": {
+        "by_month": {
+          "date_histogram": { <2>
+            "field":    "comments.date",
+            "interval": "month",
+            "format":   "yyyy-MM"
+          },
+          "aggs": {
+            "avg_stars": {
+              "avg": { <3>
+                "field": "comments.stars"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+--------------------------
+<1> The `nested` aggregation ``steps down'' into the nested `comments` object.
+<2> Comments are bucketed into months based on the `comments.date` field.
+<3> The average number of stars is calculated for each bucket.
+
+The results show that aggregation has happened at the nested document level:
+
+[source,json]
+--------------------------
+...
+"aggregations": {
+  "comments": {
+     "doc_count": 4, <1>
+     "by_month": {
+        "buckets": [
+           {
+              "key_as_string": "2014-09",
+              "key": 1409529600000,
+              "doc_count": 1, <1>
+              "avg_stars": {
+                 "value": 4
+              }
+           },
+           {
+              "key_as_string": "2014-10",
+              "key": 1412121600000,
+              "doc_count": 3, <1>
+              "avg_stars": {
+                 "value": 2.6666666666666665
+              }
+           }
+        ]
+     }
+  }
+}
+...
+--------------------------
+<1> There are a total of four `comments`: one in September and three in October.
+
+[[reverse-nested-aggregation]]
+==== reverse_nested Aggregation
+
+A `nested` aggregation can access((("aggregations", "nested", "reverse_nested aggregation")))((("reverse_nested aggregation"))) only the fields within the nested document.
+It can't see fields in the root document or in a different nested document.
+However, we can _step out_ of the nested scope back into the parent with a
+`reverse_nested` aggregation.
+
+For instance, we can find out which `tags` our commenters are interested in,
+based on the age of the commenter.  The `comment.age` is a nested field, while
+the `tags` are in the root document:
+
+[source,json]
+--------------------------
+GET /my_index/blogpost/_search?search_type=count
+{
+  "aggs": {
+    "comments": {
+      "nested": { <1>
+        "path": "comments"
+      },
+      "aggs": {
+        "age_group": {
+          "histogram": { <2>
+            "field":    "comments.age",
+            "interval": 10
+          },
+          "aggs": {
+            "blogposts": {
+              "reverse_nested": {}, <3>
+              "aggs": {
+                "tags": {
+                  "terms": { <4>
+                    "field": "tags"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+--------------------------
+<1> The `nested` agg steps down into the `comments` object.
+<2> The `histogram` agg groups on the `comments.age` field, in buckets
+    of 10 years.
+<3> The `reverse_nested` agg steps back up to the root document.
+<4> The `terms` agg counts popular terms per age group of the commenter.
+
+The abbreviated results show us the following:
+
+[source,json]
+--------------------------
+..
+"aggregations": {
+  "comments": {
+     "doc_count": 4, <1>
+     "age_group": {
+        "buckets": [
+           {
+              "key": 20, <2>
+              "doc_count": 2, <2>
+              "blogposts": {
+                 "doc_count": 2, <3>
+                 "tags": {
+                    "doc_count_error_upper_bound": 0,
+                    "buckets": [ <4>
+                       { "key": "shares",   "doc_count": 2 },
+                       { "key": "cash",     "doc_count": 1 },
+                       { "key": "equities", "doc_count": 1 }
+                    ]
+                 }
+              }
+           },
+...
+--------------------------
+<1> There are four comments.
+<2> There are two comments by commenters between the ages of 20 and 30.
+<3> Two blog posts are associated with those comments.
+<4> The popular tags in those blog posts are `shares`, `cash`, and `equities`.
+
+==== When to Use Nested Objects
+
+Nested objects((("nested objects", "when to use"))) are useful when there is one main entity, like our `blogpost`,
+with a limited number of closely related but less important entities, such as
+comments.  It is useful to be able to find blog posts based on the content of
+the comments, and the `nested` query and filter provide for fast query-time
+joins.
+
+The disadvantages of the nested model are as follows:
+
+* To add, change, or delete  a nested document, the whole document must be
+  reindexed. This becomes more costly the more nested documents there are.
+
+* Search requests return the whole document, not just the matching nested
+  documents. Although there are plans afoot to support returning the best
+ -matching nested documents with the root document, this is not yet supported.
+
+Sometimes you need a complete separation between the main document and its
+associated entities.  This separation is provided by the _parent-child
+relationship_.
+
+

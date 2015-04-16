@@ -1,0 +1,285 @@
+[[preload-fielddata]]
+=== Preloading Fielddata
+
+The default behavior of Elasticsearch is to ((("fielddata", "pre-loading")))load in-memory fielddata _lazily_.
+The first time Elasticsearch encounters a query that needs fielddata for a
+particular field, it will load that entire field into memory for each segment
+in the index.
+
+For small segments, this requires a negligible amount of time.  But if you
+have a few 5 GB segments and need to load 10 GB of fielddata into memory, this
+process could take tens of seconds.  Users accustomed to subsecond response
+times would all of a sudden be hit by an apparently unresponsive website.
+
+There are three methods to combat this latency spike:
+
+- Eagerly load fielddata
+- Eagerly load global ordinals
+- Prepopulate caches with warmers
+
+All are variations on the same concept: preload the fielddata so that there is 
+no latency spike when the user needs to execute a search.
+
+[[eager-fielddata]]
+==== Eagerly Loading Fielddata
+
+The first tool is called _eager loading_ (as opposed ((("eager loading", "of fielddata")))to the default lazy
+loading). As new segments are created (by refreshing, flushing, or merging),
+fields with eager loading enabled will have their per-segment fielddata
+preloaded _before_ the segment becomes visible to search.
+
+This means that the first query to hit the segment will not need to trigger
+fielddata loading, as the in-memory cache has already been populated. This
+prevents your users from experiencing the _cold cache_ latency spike.
+
+Eager loading is enabled on a per-field basis, so you can control which fields
+are pre-loaded:
+
+[source,js]
+----
+PUT /music/_mapping/_song
+{
+  "price_usd": {
+    "type": "integer",
+    "fielddata": {
+      "loading" : "eager" <1>
+    }
+  }
+}
+----
+<1> By setting `fielddata.loading: eager`, we tell Elasticsearch to preload
+this field's contents into memory.
+
+Fielddata loading can be set to `lazy` or `eager` on existing fields, using
+the `update-mapping` API.
+
+[WARNING]
+====
+
+Eager loading simply shifts the cost of loading fielddata.  Instead of paying
+at query time, you pay at refresh time.
+
+Large segments will take longer to refresh than small segments.  Usually,
+large segments are created by merging smaller segments that are already
+visible to search, so the slower refresh time is not important.
+
+====
+
+[[global-ordinals]]
+==== Global Ordinals
+
+One of the techniques used to reduce the memory usage of string
+fielddata is ((("ordinals")))called _ordinals_.
+
+Imagine that we have a billion documents, each of which has a `status` field.
+There are only three statuses: `status_pending`, `status_published`,
+`status_deleted`. If we were to hold the full string status in memory for
+every document, we would use 14 to 16 bytes per document, or about 15 GB.
+
+Instead, we can identify the three unique strings, sort them, and number them: 0, 1, 2.
+
+    Ordinal | Term
+    -------------------
+    0       | status_deleted
+    1       | status_pending
+    2       | status_published
+
+The original strings are stored only once in the ordinals list, and each
+document just uses the numbered ordinal to point to the value that it
+contains.
+
+    Doc     | Ordinal
+    -------------------------
+    0       | 1  # pending
+    1       | 1  # pending
+    2       | 2  # published
+    3       | 0  # deleted
+
+This reduces memory usage from 15 GB to less than 1 GB!
+
+But there is a problem. Remember that fielddata caches are _per segment_.  If
+one segment contains only two statuses&#x2014;`status_deleted` and
+`status_published`&#x2014;then the resulting ordinals (0 and 1) will not be the
+same as the ordinals for a segment that contains all three statuses.
+
+If we try to run a `terms` aggregation on the `status` field, we need to
+aggregate on the actual string values, which means that we need to identify
+the same values across all segments.  A naive way of doing this would be to
+run the aggregation on each segment, return the string values from each
+segment, and then reduce them into an overall result.  While this would work,
+it would be slow and CPU intensive.
+
+Instead, we use a structure called _global ordinals_. ((("global ordinals"))) Global ordinals are a
+small in-memory data structure built on top of fielddata.  Unique values are
+identified _across all segments_ and stored in an ordinals list like the one
+we have already described.
+
+Now, our `terms` aggregation can just aggregate on the global ordinals, and
+the conversion from ordinal to actual string value happens only once at the
+end of the aggregation. This increases performance of aggregations (and
+sorting) by a factor of three or four.
+
+===== Building global ordinals
+
+Of course, nothing in life is free. ((("global ordinals", "building"))) Global ordinals cross all segments in an
+index, so if a new segment is added or an old segment is deleted, the global
+ordinals need to be rebuilt.  Rebuilding requires reading every unique term in
+every segment.  The higher the cardinality--the more unique terms that exist--the longer this process takes.
+
+Global ordinals are built on top of in-memory fielddata and doc values.  In
+fact, they are one of the major reasons that doc values perform as well as
+they do.
+
+Like fielddata loading, global ordinals are built lazily, by default.  The
+first request that requires fielddata to hit an index will trigger the
+building of global ordinals. Depending on the cardinality of the field, this
+can result in a significant latency spike for your users.  Once global
+ordinals have been rebuilt, they will be reused until the segments in the index
+change: after a refresh, a flush, or a merge.
+
+[[eager-global-ordinals]]
+===== Eager global ordinals
+
+Individual string fields((("eager loading", "of global ordinals")))((("global ordinals", "eager"))) can be configured to prebuild global ordinals eagerly:
+
+[source,js]
+----
+PUT /music/_mapping/_song
+{
+  "song_title": {
+    "type": "string",
+    "fielddata": {
+      "loading" : "eager_global_ordinals" <1>
+    }
+  }
+}
+----
+<1> Setting `eager_global_ordinals` also implies loading fielddata eagerly.
+
+Just like the eager preloading of fielddata, eager global ordinals are built
+before a new segment becomes visible to search.  
+
+[NOTE]
+=========================
+Ordinals are only built and used for strings.  Numerical data (integers, geopoints,
+dates, etc) doesn't need an ordinal mapping, since the value itself acts as an
+intrinsic ordinal mapping.
+
+Therefore, you can only enable eager global ordinals for string fields.
+=========================
+
+Doc values can also have their global ordinals built eagerly:
+
+[source,js]
+----
+PUT /music/_mapping/_song
+{
+  "song_title": {
+    "type":       "string",
+    "doc_values": true,
+    "fielddata": {
+      "loading" : "eager_global_ordinals" <1>
+    }
+  }
+}
+----
+<1> In this case, fielddata is not loaded into memory, but doc values are
+    loaded into the filesystem cache.
+
+Unlike fielddata preloading, eager building of global ordinals can have an
+impact on the _real-time_ aspect of your data.  For very high cardinality
+fields, building global ordinals can delay a refresh by several seconds.  The
+choice is between paying the cost on each refresh, or on the first query after
+a refresh.  If you index often and query seldom, it is probably better to pay
+the price at query time instead of on every refresh.
+
+
+[TIP]
+====
+
+Make your global ordinals pay for themselves. If you have very high
+cardinality fields that take seconds to rebuild, increase the
+`refresh_interval` so that global ordinals remain valid for longer.  This will
+also reduce CPU usage, as you will need to rebuild global ordinals less often.
+
+====
+
+[[index-warmers]]
+==== Index Warmers
+
+Finally, we come to _index warmers_.  Warmers((("index warmers"))) predate eager fielddata loading
+and eager global ordinals, but they still serve a purpose. An index warmer
+allows you to specify a query and aggregations that should be run before a new
+segment is made visible to search. The idea is to prepopulate, or _warm_,
+caches so your users never see a spike in latency.
+
+Originally, the most important use for warmers was to make sure that fielddata
+was pre-loaded, as this is usually the most costly step.  This is now better
+controlled with the techniques we discussed previously.  However, warmers can
+be used to prebuild filter caches, and can still be used to preload fielddata
+should you so choose.
+
+Let's register a warmer and then talk about what's happening:
+
+[source,js]
+----
+PUT /music/_warmer/warmer_1 <1>
+{
+  "query" : {
+    "filtered" : {
+      "filter" : {
+        "bool": {
+          "should": [ <2>
+            { "term": { "tag": "rock"        }},
+            { "term": { "tag": "hiphop"      }},
+            { "term": { "tag": "electronics" }}
+          ]
+        }
+      }
+    }
+  },
+  "aggs" : {
+    "price" : {
+      "histogram" : {
+        "field" : "price", <3>
+        "interval" : 10
+      }
+    }
+  }
+}
+----
+<1> Warmers are associated with an index (`music`) and are registered using
+the `_warmer` endpoint and a unique ID (`warmer_1`).
+<2> The three most popular music genres have their filter caches prebuilt.
+<3> The fielddata and global ordinals for the `price` field will be preloaded.
+
+Warmers are registered against a specific index.((("warmers", see="index warmers")))  Each warmer is given a
+unique ID, because you can have multiple warmers per index.
+
+Then you just specify a query, any query.  It can include queries, filters,
+aggregations, sort values, scripts--literally any valid query DSL.  The
+point is to register queries that are representative of the traffic that your
+users will generate, so that appropriate caches can be prepopulated.
+
+When a new segment is created, Elasticsearch will _literally_ execute the queries
+registered in your warmers.  The act of executing these queries will force
+caches to be loaded.  Only after all warmers have been executed will the segment
+be made visible to search.
+
+[WARNING]
+====
+Similar to eager loading, warmers shift the cost of cold caches to refresh time.
+When registering warmers, it is important to be judicious.  You _could_ add
+thousands of warmers to make sure every cache is populated--but that will
+drastically increase the time it takes for new segments to be made searchable.
+
+In practice, select a handful of queries that represent the majority of your
+user's queries and register those.
+====
+
+Some administrative details (such as getting existing warmers and deleting warmers) that have been omitted from this explanation.  Refer to the http://bit.ly/1AUGwys[warmers documentation] for the rest
+of the details.
+
+
+
+

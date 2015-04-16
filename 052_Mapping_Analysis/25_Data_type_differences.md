@@ -1,0 +1,82 @@
+[[mapping-analysis]]
+== Mapping and Analysis
+
+While playing around with the data in our index, we notice something odd.
+Something seems to be broken: we have 12 tweets in our indices, and only one
+of them contains the date `2014-09-15`, but have a look at the `total` hits
+for the following queries:
+
+[source,js]
+--------------------------------------------------
+GET /_search?q=2014              # 12 results
+GET /_search?q=2014-09-15        # 12 results !
+GET /_search?q=date:2014-09-15   # 1  result
+GET /_search?q=date:2014         # 0  results !
+--------------------------------------------------
+// SENSE: 052_Mapping_Analysis/25_Data_type_differences.json
+
+Why does querying the <<all-field-intro,`_all` field>> for the full date
+return all tweets, and querying the `date` field for just the year return no
+results? Why do our results differ when searching within the `_all` field or
+the `date` field?
+
+Presumably, it is because the way our data has been indexed in the `_all`
+field is different from how it has been indexed in the `date` field.
+So let's take a look at how Elasticsearch has interpreted our document
+structure, by requesting((("mapping (types)"))) the _mapping_ (or schema definition)
+for the `tweet` type in the `gb` index:
+
+[source,js]
+--------------------------------------------------
+GET /gb/_mapping/tweet
+--------------------------------------------------
+// SENSE: 052_Mapping_Analysis/25_Data_type_differences.json
+
+
+This gives us the following:
+
+[source,js]
+--------------------------------------------------
+{
+   "gb": {
+      "mappings": {
+         "tweet": {
+            "properties": {
+               "date": {
+                  "type": "date",
+                  "format": "dateOptionalTime"
+               },
+               "name": {
+                  "type": "string"
+               },
+               "tweet": {
+                  "type": "string"
+               },
+               "user_id": {
+                  "type": "long"
+               }
+            }
+         }
+      }
+   }
+}
+--------------------------------------------------
+
+
+Elasticsearch has dynamically generated a mapping for us, based on what it
+could guess about our field types. The response shows us that the `date` field
+has been recognized as a field of type `date`. ((("_all field", sortas="all field")))The `_all` field isn't
+mentioned because it is a default field, but we know that the `_all` field is
+of type `string`.((("string fields")))
+
+So fields of type `date` and fields of type `string` are((("indexing", "differences in, for different core types"))) indexed differently,
+and can thus be searched differently.  That's not entirely surprising.
+You might expect that each of the ((("data types", "core, different indexing of")))core data types--strings, numbers, Booleans,
+and dates--might be indexed slightly differently. And this is true:
+there are slight differences.
+
+But by far the biggest difference is between fields((("exact values", "fields representing")))((("full text", "fields representing"))) that represent
+_exact values_ (which can include `string` fields) and fields that
+represent _full text_. This distinction is really important--it's the thing
+that separates a search engine from all other databases.
+

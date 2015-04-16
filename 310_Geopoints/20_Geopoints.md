@@ -1,0 +1,81 @@
+[[geopoints]]
+== Geo-Points
+
+A _geo-point_ is a single latitude/longitude point on the Earth's surface.((("geo-points"))) Geo-points
+can be used to calculate distance from a point, to determine whether a point
+falls within a bounding box, or in aggregations.
+
+Geo-points cannot be automatically detected((("dynamic mapping", "geo-points and"))) with
+<<dynamic-mapping,dynamic mapping>>. Instead, `geo_point` fields should be
+mapped ((("mapping (types)", "geo-points")))explicitly:
+
+[source,json]
+-----------------------
+PUT /attractions
+{
+  "mappings": {
+    "restaurant": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "location": {
+          "type": "geo_point"
+        }
+      }
+    }
+  }
+}
+-----------------------
+
+[[lat-lon-formats]]
+[float="true"]
+=== Lat/Lon Formats
+
+With the `location` field defined as a `geo_point`, we can proceed to index
+documents containing latitude/longitude pairs,((("geo-points", "location fields defined as, lat/lon formats")))((("location field, defined as geo-point")))((("latitude/longitude pairs", "lat/lon formats for geo-points")))((("arrays", "geo-point, lon/lat format")))((("strings", "geo-point, lat/lon format")))((("objects", "geo-point, lat/lon format"))) which can be formatted as
+strings, arrays, or objects:
+
+[role="pagebreak-before"]
+[source,json]
+-----------------------
+PUT /attractions/restaurant/1
+{
+  "name":     "Chipotle Mexican Grill",
+  "location": "40.715, -74.011" <1>
+}
+
+PUT /attractions/restaurant/2
+{
+  "name":     "Pala Pizza",
+  "location": { <2>
+    "lat":     40.722,
+    "lon":    -73.989
+  }
+}
+
+PUT /attractions/restaurant/3
+{
+  "name":     "Mini Munchies Pizza",
+  "location": [ -73.983, 40.719 ] <3>
+}
+-----------------------
+<1> A string representation, with `"lat,lon"`.
+<2> An object representation with `lat` and `lon` explicitly named.
+<3> An array representation with `[lon,lat]`.
+
+[CAUTION]
+========================
+
+Everybody gets caught at least once: string geo-points are
+`"latitude,longitude"`, while array geo-points are `[longitude,latitude]`&#x2014;the opposite order!
+
+Originally, both strings and arrays in Elasticsearch used latitude followed by
+longitude. However, it was decided early on to switch the order for arrays in
+order to conform with GeoJSON.
+
+The result is a bear trap that captures all unsuspecting users on their
+journey to full geolocation nirvana.
+
+========================
+

@@ -1,0 +1,43 @@
+[[filter-by-geopoint]]
+=== Filtering by Geo-Point
+
+Four geo-point filters ((("geo-points", "filtering by")))((("filtering", "by geo-points")))can be used to include or exclude documents by
+geolocation:
+
+<<geo-bounding-box,`geo_bounding_box`>>::
+
+    Find geo-points that fall within the specified rectangle.
+
+<<geo-distance,`geo_distance`>>::
+
+    Find geo-points within the specified distance of a central point.
+
+<<geo-distance-range,`geo_distance_range`>>::
+
+    Find geo-points within a specified minimum and maximum distance from a
+    central point.
+
+`geo_polygon`::
+
+    Find geo-points that fall within the specified polygon. _This filter is
+    very expensive_. If you find yourself wanting to use it, you should be
+    looking at <<geo-shapes,geo-shapes>> instead.
+
+All of these filters work in a similar way: the `lat/lon` values are loaded
+into memory for _all documents in the index_, not just the documents that
+match the query (see <<fielddata-intro>>).((("aggregations", "fielddata", "filtering"))) Each filter performs a slightly
+different calculation to check whether a point falls into the containing area.
+
+[TIP]
+============================
+
+Geo-filters are expensive -- they should be used on as few documents as
+possible. First remove as many documents as you can with cheaper filters, like
+`term` or `range` filters, and apply the geo-filters last.
+
+The <<bool-filter,`bool` filter>> will do this for you automatically.((("bool filter", "applying cheaper filters before geo-filters"))) First it
+applies any bitset-based filters (see <<filter-caching>>) to exclude as many
+documents as it can as cheaply as possible.  Then it applies the more
+expensive geo or script filters to each remaining document in turn.
+
+============================

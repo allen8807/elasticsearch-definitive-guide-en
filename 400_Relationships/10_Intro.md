@@ -1,0 +1,61 @@
+[[relations]]
+== Handling Relationships
+
+In the real world, relationships((("relationships"))) matter: blog posts have comments, bank
+accounts have transactions, customers have bank accounts, orders have order
+lines, and directories have files and subdirectories.
+
+Relational databases are specifically designed--and this will not come as a
+surprise to you--to manage((("relational databases", "managing relationships"))) relationships:
+
+*   Each entity (or _row_, in the relational world) can be uniquely identified
+    by a _primary key_.((("primary key")))
+
+*   Entities are _normalized_. The data for a unique entity is stored only
+    once, and related entities store just its primary key. Changing the data of
+    an entity has to happen in only one place.((("joins", "in relational databases")))
+
+*   Entities can be joined at query time, allowing for cross-entity search.
+
+*   Changes to a single entity are _atomic_, _consistent_, _isolated_, and
+    _durable_.  (See http://en.wikipedia.org/wiki/ACID_transactions[_ACID Transactions_]
+    for more on this subject.)
+
+*   Most relational databases support ACID transactions across multiple
+    entities.
+
+But relational ((("ACID transactions")))databases do have their limitations, besides their poor support
+for full-text search. Joining entities at query time is expensive--more
+joins that are required, the more expensive the query.  Performing joins
+between entities that live on different hardware is so expensive that it is
+just not practical. This places a limit on the amount of data that can be
+stored on a single server.
+
+Elasticsearch, like((("NoSQL databases"))) most NoSQL databases, treats the world as though it were
+flat. An index is a flat collection of independent documents.((("indices"))) A single
+document should contain all of the information that is required to decide
+whether it matches a search request.
+
+While changing the data of a single document in Elasticsearch is
+http://en.wikipedia.org/wiki/ACID_transactions[ACIDic], transactions
+involving multiple documents are not.  There is no way to roll back the index
+to its previous state if part of a transaction fails.
+
+This FlatWorld has its advantages:
+
+*  Indexing is fast and lock-free.
+*  Searching is fast and lock-free.
+*  Massive amounts of data can be spread across multiple nodes, because each
+   document is independent of the others.
+
+But relationships matter.  Somehow, we need to bridge the gap between
+FlatWorld and the real world.((("relationships", "techniques for managing relational data in Elasticsearch"))) Four common techniques are used to manage
+relational data in Elasticsearch:
+
+* <<application-joins,Application-side joins>>
+* <<denormalization,Data denormalization>>
+* <<nested-objects,Nested objects>>
+* <<parent-child,Parent/child relationships>>
+
+Often the final solution will require a mixture of a few of these techniques.
+

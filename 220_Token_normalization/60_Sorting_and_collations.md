@@ -1,0 +1,457 @@
+[[sorting-collations]]
+=== Sorting and Collations
+
+So far in this chapter, we have looked at how to normalize tokens for the
+purposes of search.((("tokens", "normalizing", "for sorting and collation")))  The final use case to consider in this chapter
+is that of string sorting.((("sorting")))
+
+In <<multi-fields>>, we explained that Elasticsearch cannot sort on an
+`analyzed` string field, and demonstrated how to use _multifields_ to index
+the same field once as an `analyzed` field for search, and once as a
+`not_analyzed` field for sorting.((("not_analyzed fields", "for string sorting")))((("analyzed fields", "for searh")))
+
+The problem with sorting on an `analyzed` field is not that it uses
+an analyzer, but that the analyzer tokenizes the string value into
+multiple tokens, like  a _bag of words_, and Elasticsearch doesn't know which
+token to use for sorting.
+
+Relying on a `not_analyzed` field for sorting is inflexible: it allows
+us to sort on only the exact value of the original string.  However, we _can_ use
+analyzers to achieve other sort orders, as long as our chosen analyzer always emits only a single token for each string value.
+
+[[case-insensitive-sorting]]
+==== Case-Insensitive Sorting
+
+Imagine that we have three `user` documents whose `name` fields contain `Boffey`,((("case insensitive sorting")))((("sorting", "case insensitive")))
+`BROWN`, and `bailey`, respectively.  First we will apply the technique
+described in <<multi-fields>> of using a `not_analyzed` field for sorting:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index
+{
+  "mappings": {
+    "user": {
+      "properties": {
+        "name": { <1>
+          "type": "string",
+          "fields": {
+            "raw": { <2>
+              "type":  "string",
+              "index": "not_analyzed"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+--------------------------------------------------
+<1> The `analyzed` `name` field is used for search.
+<2> The `not_analyzed` `name.raw` field is used for sorting.
+
+We can index some documents and try sorting:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index/user/1
+{ "name": "Boffey" }
+
+PUT /my_index/user/2
+{ "name": "BROWN" }
+
+PUT /my_index/user/3
+{ "name": "bailey" }
+
+GET /my_index/user/_search?sort=name.raw
+--------------------------------------------------
+
+The preceding search request would return the documents in this order: `BROWN`,
+`Boffey`, `bailey`. This is known as _lexicographical order_ as ((("lexicographical order")))((("alphabetical order")))opposed to
+_alphabetical order_.  Essentially, the bytes used to represent capital
+letters have a lower value than the bytes used to represent lowercase letters,
+and so the names are sorted with the lowest bytes first.
+
+That may make sense to a computer, but doesn't make much sense to human beings
+who would reasonably expect these names to be sorted alphabetically,
+regardless of case.  To achieve this, we need to index each name in a way that
+the byte ordering corresponds to the sort order that we want.
+
+In other words, we need an analyzer that will emit a single lowercase token:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "case_insensitive_sort": {
+          "tokenizer": "keyword",    <1>
+          "filter":  [ "lowercase" ] <2>
+        }
+      }
+    }
+  }
+}
+--------------------------------------------------
+<1> The `keyword` tokenizer emits the original input string
+    as a single unchanged token.((("keyword tokenizer")))
+<2> The `lowercase` token filter lowercases the token.
+
+With((("lowercase token filter"))) the `case_insentive_sort` analyzer in place, we can now use it in our
+multifield:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index/_mapping/user
+{
+  "properties": {
+    "name": {
+      "type": "string",
+      "fields": {
+        "lower_case_sort": { <1>
+          "type":     "string",
+          "analyzer": "case_insensitive_sort"
+        }
+      }
+    }
+  }
+}
+
+PUT /my_index/user/1
+{ "name": "Boffey" }
+
+PUT /my_index/user/2
+{ "name": "BROWN" }
+
+PUT /my_index/user/3
+{ "name": "bailey" }
+
+GET /my_index/user/_search?sort=name.lower_case_sort
+--------------------------------------------------
+<1> The `name.lower_case_sort` field will provide us with
+    case-insentive sorting.
+
+The preceding search request returns our documents in the order that we expect:
+`bailey`, `Boffey`, `BROWN`.
+
+But is this order correct? It appears to be correct as it matches our
+expectations, but our expectations have probably been influenced by the fact
+that this book is in English and all of the letters used in our example belong
+to the English alphabet.
+
+What if we were to add the German name _Böhm_?
+
+Now our names would be returned in this order: `bailey`, `Boffey`, `BROWN`,
+`Böhm`. The reason that `böhm` comes after `BROWN` is that these words are
+still being sorted by the values of the bytes used to represent them, and an
+`r` is stored as the byte `0x72`, while `ö` is stored as `0xF6` and so is
+sorted last. The byte value of each character is an accident of history.
+
+Clearly, the default sort order is meaningless for anything other than plain
+English. In fact, there is no ``right'' sort order.  It all depends on the
+language you speak.
+
+==== Differences Between Languages
+
+Every language has its own sort order, and((("sorting", "differences between languages")))((("languages", "sort order, differences in"))) sometimes even multiple sort
+orders.((("Swedish, sort order")))((("German", "sort order")))((("English", "sort order"))) Here are a few examples of how our four names from the previous
+section would be sorted in different contexts:
+
+* English:          `bailey`, `boffey`, `böhm`,   `brown`
+
+* German:           `bailey`, `boffey`, `böhm`,   `brown`
+
+* German phonebook: `bailey`, `böhm`,   `boffey`, `brown`
+
+* Swedish:          `bailey`, `boffey`, `brown`,  `böhm`
+
+[NOTE]
+====
+The reason that the German phonebook sort order places `böhm` _before_ `boffey`
+is that `ö` and `oe` are considered synonyms when dealing with names and
+places, so `böhm` is sorted as if it had been written as `boehm`.
+====
+
+[[uca]]
+==== Unicode Collation Algorithm
+
+_Collation_ is the process of sorting text into a predefined order.((("collation")))((("Unicode Collation Algorithm (UCA)")))  The
+_Unicode Collation Algorithm_, or UCA (see
+http://www.unicode.org/reports/tr10/[_www.unicode.org/reports/tr10_]) defines a
+method of sorting strings into the order defined in a _Collation Element
+Table_ (usually referred to just as a _collation_).
+
+The UCA also defines the _Default Unicode Collation Element Table_, or _DUCET_,
+which defines the default sort order((("Default Unicode Collation Element Table (DUCET)"))) for all Unicode characters, regardless of
+language. As you have already seen, there is no single correct sort order, so
+DUCET is designed to annoy as few people as possible as seldom as possible,
+but it is far from being a panacea for all sorting woes.
+
+Instead, language-specific collations((("languages", "collations"))) exist for pretty much every language
+under the sun. Most use DUCET as their starting point and add a few custom
+rules to deal with the peculiarities of each language.
+
+The UCA takes a string and a collation as inputs and outputs a binary sort
+key. Sorting a collection of strings according to the specified collation then
+becomes a simple comparison of their binary sort keys.
+
+==== Unicode Sorting
+
+[TIP]
+=================================================
+
+The approach described in this section will probably change in ((("Unicode", "sorting")))((("sorting", "Unicode")))a future version of
+Elasticsearch. Check the <<icu-plugin,`icu` plugin>> documentation for the
+latest information.
+
+=================================================
+
+The `icu_collation` token filter defaults((("icu_collation token filter"))) to using the DUCET
+collation for sorting.  This is already an improvement over the default sort.  To use it,
+all we need to do is to create an analyzer that uses the default
+`icu_collation` filter:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "ducet_sort": {
+          "tokenizer": "keyword",
+          "filter": [ "icu_collation" ] <1>
+        }
+      }
+    }
+  }
+}
+--------------------------------------------------
+<1> Use the default DUCET collation.
+
+Typically, the field that we want to sort on is also a field that we want to
+search on, so we use the same multifield approach as we used in
+<<case-insensitive-sorting>>:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index/_mapping/user
+{
+  "properties": {
+    "name": {
+      "type": "string",
+      "fields": {
+        "sort": {
+          "type": "string",
+          "analyzer": "ducet_sort"
+        }
+      }
+    }
+  }
+}
+--------------------------------------------------
+
+With this mapping, the `name.sort` field will contain a sort key that will be
+used only for sorting. ((("Default Unicode Collation Element Table (DUCET)")))((("Unicode Collation Algorithm (UCA)"))) We haven't specified a language, so it defaults to
+using the <<uca,DUCET collation>>.
+
+Now, we can reindex our example docs and test the sorting:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index/user/_bulk
+{ "index": { "_id": 1 }}
+{ "name": "Boffey" }
+{ "index": { "_id": 2 }}
+{ "name": "BROWN" }
+{ "index": { "_id": 3 }}
+{ "name": "bailey" }
+{ "index": { "_id": 4 }}
+{ "name": "Böhm" }
+
+GET /my_index/user/_search?sort=name.sort
+--------------------------------------------------
+
+[NOTE]
+====
+Note that the `sort` key returned with each document, which in earlier
+examples looked like `brown` and `böhm`, now looks like gobbledygook:
+`ᖔ乏昫တ倈⠀\u0001`.  The reason is that the `icu_collation` filter emits keys
+intended only for efficient sorting, not for any other purposes.
+====
+
+The preceding search returns our docs in this order: `bailey`, `Boffey`, `Böhm`,
+`BROWN`. This is already an improvement, as the sort order is now correct for
+English and German, but it is still incorrect for German phonebooks and
+Swedish. The next step is to customize our mapping for different languages.
+
+==== Specifying a Language
+
+The `icu_collation` filter can be ((("icu_collation token filter", "specifying a language")))((("languages", "collation table for a specific language, icu_collation filter using")))configured to use the collation table for a
+specific language, a country-specific version of a language, or some other
+subset such as German phonebooks.  This can be done by creating a custom version
+of the token filter by ((("German", "collation table for, icu_collation filter using")))using the `language`, `country`, and `variant` parameters
+as follows:
+
+English::
++
+[source,json]
+-------------------------
+{ "language": "en" }
+-------------------------
+
+German::
++
+[source,json]
+-------------------------
+{ "language": "de" }
+-------------------------
+
+Austrian German::
++
+[source,json]
+-------------------------
+{ "language": "de", "country": "AT" }
+-------------------------
+
+German phonebooks::
++
+[source,json]
+-------------------------
+{ "language": "en", "variant": "@collation=phonebook" }
+-------------------------
+
+[TIP]
+==================================================
+
+You can read more about the locales supported by ICU at:
+http://bit.ly/1u9LEdp.
+
+==================================================
+
+This example shows how to set up the German phonebook sort order:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index
+{
+  "settings": {
+    "number_of_shards": 1,
+    "analysis": {
+      "filter": {
+        "german_phonebook": { <1>
+          "type":     "icu_collation",
+          "language": "de",
+          "country":  "DE",
+          "variant":  "@collation=phonebook"
+        }
+      },
+      "analyzer": {
+        "german_phonebook": { <2>
+          "tokenizer": "keyword",
+          "filter":  [ "german_phonebook" ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "user": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "fields": {
+            "sort": { <3>
+              "type":     "string",
+              "analyzer": "german_phonebook"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+--------------------------------------------------
+<1> First we create a version of the `icu_collation` customized for the German phonebook collation.
+<2> Then we wrap that up in a custom analyzer.
+<3> And we apply it to our `name.sort` field.
+
+Reindex the data and repeat the same search as we used previously:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index/user/_bulk
+{ "index": { "_id": 1 }}
+{ "name": "Boffey" }
+{ "index": { "_id": 2 }}
+{ "name": "BROWN" }
+{ "index": { "_id": 3 }}
+{ "name": "bailey" }
+{ "index": { "_id": 4 }}
+{ "name": "Böhm" }
+
+GET /my_index/user/_search?sort=name.sort
+--------------------------------------------------
+
+This now returns our docs in this order: `bailey`, `Böhm`, `Boffey`,  `BROWN`.
+In the German phonebook collation, `Böhm` is the equivalent of `Boehm`, which
+comes before `Boffey`.
+
+===== Multiple sort orders
+
+The same field can support multiple ((("sorting", "multiple sort orders supported by same field")))sort orders by using a multifield for
+each language:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index/_mapping/_user
+{
+  "properties": {
+    "name": {
+      "type": "string",
+      "fields": {
+        "default": {
+          "type":     "string",
+          "analyzer": "ducet" <1>
+        },
+        "french": {
+          "type":     "string",
+          "analyzer": "french" <1>
+        },
+        "german": {
+          "type":     "string",
+          "analyzer": "german_phonebook" <1>
+        },
+        "swedish": {
+          "type":     "string",
+          "analyzer": "swedish" <1>
+        }
+      }
+    }
+  }
+}
+--------------------------------------------------
+<1> We would need to create the corresponding analyzers for each of these collations.
+
+With this mapping in place, results can be ordered correctly for French,
+German, and Swedish users, just by sorting on the `name.french`, `name.german`,
+or `name.swedish` fields.  Unsupported languages can fall back to using the
+`name.default` field, which uses the DUCET sort order.
+
+
+==== Customizing Collations
+
+The `icu_collation` token filter takes((("collation", "customizing collations")))((("icu_collation token filter", "customizing collations"))) many more options than just `language`,
+`country`, and `variant`,  which can be used to tailor the sorting algorithm.
+Options are available that will do the following:
+
+* Ignore diacritics
+* Order uppercase first or last, or ignore case
+* Take punctuation and whitespace into account or ignore it
+* Sort numbers as strings or by their numeric value
+* Customize existing collations or define your own custom collations
+
+Details of these options are beyond the scope of this book, but more information
+can be found in the https://github.com/elasticsearch/elasticsearch-analysis-icu[ICU plug-in documentation]
+and in the http://userguide.icu-project.org/collation/concepts[ICU project collation documentation].

@@ -1,0 +1,19 @@
+[[deploy]]
+== Production Deployment
+
+include::510_Deployment/10_intro.asciidoc[]
+
+include::510_Deployment/20_hardware.asciidoc[]
+
+include::510_Deployment/30_other.asciidoc[]
+
+include::510_Deployment/40_config.asciidoc[]
+
+include::510_Deployment/45_dont_touch.asciidoc[]
+
+include::510_Deployment/50_heap.asciidoc[]
+
+include::510_Deployment/60_file_descriptors.asciidoc[]
+
+include::510_Deployment/70_conclusion.asciidoc[]
+

@@ -1,0 +1,33 @@
+[[fuzzy-scoring]]
+=== Scoring Fuzziness
+
+Users love fuzzy queries. They assume that these queries will somehow magically find
+the right combination of proper spellings.((("fuzzy queries", "scoring fuzziness")))((("typoes and misspellings", "scoring fuzziness")))((("relevance scores", "fuzziness and")))  Unfortunately, the truth is
+somewhat more prosaic.
+
+Imagine that we have 1,000 documents containing ``Schwarzenegger,'' and just
+one document with the misspelling ``Schwarzeneger.''  According to the theory
+of <<tfidf,term frequency/inverse document frequency>>, the misspelling is
+much more relevant than the correct spelling, because it appears in far fewer
+documents!
+
+In other words, if we were to treat fuzzy matches((("match query", "fuzzy match query"))) like any other match, we
+would favor misspellings over correct spellings, which would make for grumpy
+users.
+
+TIP: Fuzzy matching should not be used for scoring purposes--only to widen
+the net of matching terms in case there are misspellings.
+
+By default, the `match` query gives all fuzzy matches the constant score of 1.
+This is sufficient to add potential matches onto the end of the result list,
+without interfering with the relevance scoring of nonfuzzy queries.
+
+[TIP]
+==================================================
+
+Fuzzy queries alone are much less useful than they initially appear.  They are
+better used as part of a ``bigger'' feature, such as the _search-as-you-type_
+http://bit.ly/1IChV5j[`completion` suggester] or the
+_did-you-mean_ http://bit.ly/1IOj5ZG[`phrase` suggester].
+
+==================================================

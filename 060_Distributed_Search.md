@@ -1,0 +1,10 @@
+include::060_Distributed_Search/00_Intro.asciidoc[]
+
+include::060_Distributed_Search/05_Query_phase.asciidoc[]
+
+include::060_Distributed_Search/10_Fetch_phase.asciidoc[]
+
+include::060_Distributed_Search/15_Search_options.asciidoc[]
+
+include::060_Distributed_Search/20_Scan_and_scroll.asciidoc[]
+

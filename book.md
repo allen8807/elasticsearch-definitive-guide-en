@@ -1,0 +1,23 @@
+:bookseries: animal
+:es_build:   1
+
+= Elasticsearch: The Definitive Guide
+
+include::foreword.asciidoc[]
+
+include::Preface.asciidoc[]
+
+include::00_Getting_started.asciidoc[]
+
+include::01_Search_in_depth.asciidoc[]
+
+include::02_Dealing_with_language.asciidoc[]
+
+include::03_Aggregations.asciidoc[]
+
+include::04_Geolocation.asciidoc[]
+
+include::06_Modeling_your_data.asciidoc[]
+
+include::07_Admin.asciidoc[]
+

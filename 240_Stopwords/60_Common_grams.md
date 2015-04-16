@@ -1,0 +1,201 @@
+[[common-grams]]
+=== common_grams Token Filter
+
+The `common_grams` token filter is designed to make phrase queries with
+stopwords more efficient. ((("stopwords", "phrase queries and", "common_grams token filter")))((("common_grams token filter")))((("phrase matching", "stopwords and", "common_grams token filter")))It is similar to the `shingles` token ((("shingles", "shingles token filter")))filter (see
+<<shingles>>), which creates _bigrams_ out of every pair of adjacent words. It
+is most easily explained by example.((("bigrams")))
+
+The `common_grams` token filter produces different output depending on whether
+`query_mode` is set to `false` (for indexing) or to `true` (for searching), so
+we have to create two separate analyzers:
+
+[source,json]
+-------------------------------
+PUT /my_index
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "index_filter": { <1>
+          "type":         "common_grams",
+          "common_words": "_english_" <2>
+        },
+        "search_filter": { <1>
+          "type":         "common_grams",
+          "common_words": "_english_", <2>
+          "query_mode":   true
+        }
+      },
+      "analyzer": {
+        "index_grams": { <3>
+          "tokenizer":  "standard",
+          "filter":   [ "lowercase", "index_filter" ]
+        },
+        "search_grams": { <3>
+          "tokenizer": "standard",
+          "filter":  [ "lowercase", "search_filter" ]
+        }
+      }
+    }
+  }
+}
+-------------------------------
+
+<1> First we create two token filters based on the `common_grams` token
+    filter: `index_filter` for index time (with `query_mode` set to the
+    default `false`), and `search_filter` for query time (with `query_mode`
+    set to `true`).
+
+<2> The `common_words` parameter accepts the same options as the `stopwords`
+    parameter (see <<specifying-stopwords>>).  The filter also
+    accepts a `common_words_path` parameter, which allows you to maintain the
+    common words list in a file.
+
+<3> Then we use each filter to create an analyzer for index time and another
+    for query time.
+
+With our custom analyzers in place, we can create a field that will use the
+`index_grams` analyzer at index time:
+
+[source,json]
+-------------------------------
+PUT /my_index/_mapping/my_type
+{
+  "properties": {
+    "text": {
+      "type":            "string",
+      "index_analyzer":  "index_grams", <1>
+      "search_analyzer": "standard" <1>
+    }
+  }
+}
+-------------------------------
+<1> The `text` field uses the `index_grams` analyzer at index time, but
+    defaults to using the `standard` analyzer at search time, for reasons we
+    will explain next.
+
+==== At Index Time
+
+If we were to ((("common_grams token filter", "at index time")))analyze the phrase _The quick and brown fox_ with shingles, it
+would produce these terms:
+
+[source,text]
+-------------------------------
+Pos 1: the_quick
+Pos 2: quick_and
+Pos 3: and_brown
+Pos 4: brown_fox
+-------------------------------
+
+Our new `index_grams` analyzer produces the following terms instead:
+
+[source,text]
+-------------------------------
+Pos 1: the, the_quick
+Pos 2: quick, quick_and
+Pos 3: and, and_brown
+Pos 4: brown
+Pos 5: fox
+-------------------------------
+
+All terms are output as unigrams&#x2014;`the`, `quick`, and so forth--but if a word is a
+common word or is followed by a common word, then it also outputs a bigram in
+the same position as the unigram&#x2014;`the_quick`, `quick_and`, `and_brown`.
+
+==== Unigram Queries
+
+Because the index contains unigrams,((("unigrams", "unigram phrase queries")))((("common_grams token filter", "unigram queries"))) the field can be queried using the same
+techniques that we have used for any other field, for example:
+
+[source,json]
+-------------------------------
+GET /my_index/_search
+{
+  "query": {
+    "match": {
+      "text": {
+        "query": "the quick and brown fox",
+        "cutoff_frequency": 0.01
+      }
+    }
+  }
+}
+-------------------------------
+
+The preceding query string is analyzed by the `search_analyzer` configured for the
+`text` field--the `standard` analyzer in this example--to produce the
+terms  `the`, `quick`, `and`, `brown`, `fox`.
+
+Because the index for the `text` field contains the same unigrams as produced
+by the `standard` analyzer, search functions as it would for any normal
+field.
+
+==== Bigram Phrase Queries
+
+However, when we come to do phrase queries,((("common_grams token filter", "bigram phrase queries")))((("bigrams", "bigram phrase queries"))) we can use the specialized
+`search_grams` analyzer to make the process much more efficient:
+
+[source,json]
+-------------------------------
+GET /my_index/_search
+{
+  "query": {
+    "match_phrase": {
+      "text": {
+        "query":    "The quick and brown fox",
+        "analyzer": "search_grams" <1>
+      }
+    }
+  }
+}
+
+-------------------------------
+<1> For phrase queries, we override the default `search_analyzer` and use the
+    `search_grams` analyzer instead.
+
+The `search_grams` analyzer would produce the following terms:
+
+[source,text]
+-------------------------------
+Pos 1: the_quick
+Pos 2: quick_and
+Pos 3: and_brown
+Pos 4: brown
+Pos 5: fox
+-------------------------------
+
+The analyzer has stripped out all of the common word unigrams, leaving the common word
+bigrams and the low-frequency unigrams.  Bigrams like `the_quick` are much
+less common than the single term `the`.  This has two advantages:
+
+* The positions data for `the_quick` is much smaller than for `the`, so it is
+  faster to read from disk and has less of an impact on the filesystem cache.
+
+* The term `the_quick` is much less common than `the`, so it drastically
+  decreases the number of documents that have to be examined.
+
+==== Two-Word Phrases
+
+There is one further optimization. ((("common_grams token filter", "two word phrases"))) By far the majority of phrase queries
+consist of only two words.  If one of those words happens to be a common word,
+such as
+
+[source,json]
+-------------------------------
+GET /my_index/_search
+{
+  "query": {
+    "match_phrase": {
+      "text": {
+        "query":    "The quick",
+        "analyzer": "search_grams"
+      }
+    }
+  }
+}
+-------------------------------
+
+then the `search_grams` analyzer outputs a single token: `the_quick`.  This
+transforms what originally could have been an expensive phrase query for `the`
+and `quick` into a very efficient single-term lookup.

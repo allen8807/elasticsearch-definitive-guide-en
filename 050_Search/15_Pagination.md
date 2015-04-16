@@ -1,0 +1,55 @@
+[[pagination]]
+=== Pagination
+
+Our preceding <<empty-search,empty search>> told us that 14 documents in the((("pagination")))
+cluster match our (empty) query.  But there were only 10 documents in
+the `hits` array.  How can we see the other documents?
+
+In the same way as SQL uses the `LIMIT` keyword to return a single ``page'' of
+results, Elasticsearch accepts ((("from parameter")))((("size parameter")))the `from` and `size` parameters:
+
+`size`:: 
+   Indicates the number of results that should be returned, defaults to `10`
+   
+`from`:: 
+   Indicates the number of initial results that should be skipped, defaults to `0`
+
+If you wanted to show five results per page, then pages 1 to 3
+could be requested as follows:
+
+[source,js]
+--------------------------------------------------
+GET /_search?size=5
+GET /_search?size=5&from=5
+GET /_search?size=5&from=10
+--------------------------------------------------
+// SENSE: 050_Search/15_Pagination.json
+
+
+Beware of paging too deep or requesting too many results at once. Results are
+sorted before being returned. But remember that a search request usually spans
+multiple shards. Each shard generates its own sorted results, which then need
+to be sorted centrally to ensure that the overall order is correct.
+
+.Deep Paging in Distributed Systems
+****
+
+To understand why ((("deep paging, problems with")))deep paging is problematic, let's imagine that we are
+searching within a single index with five primary shards.  When we request the
+first page of results (results 1 to 10), each shard produces its own top 10
+results and returns them to the _requesting node_, which then sorts all 50
+results in order to select the overall top 10.
+
+Now imagine that we ask for page 1,000--results 10,001 to 10,010. Everything
+works in the same way except that each shard has to produce its top 10,010
+results. The requesting node then sorts through all 50,050 results and
+discards 50,040 of them!
+
+You can see that, in a distributed system, the cost of sorting results
+grows exponentially the deeper we page.  There is a good reason
+that web search engines don't return more than 1,000 results for any query.
+
+****
+
+TIP: In <<reindex>> we explain how you _can_ retrieve large numbers of
+documents efficiently.

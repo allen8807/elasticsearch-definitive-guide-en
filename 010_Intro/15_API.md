@@ -1,0 +1,133 @@
+=== Talking to Elasticsearch
+
+How you talk to Elasticsearch depends on((("Elasticsearch", "talking to"))) whether you are using Java.
+
+==== Java API
+
+If you are using ((("Java", "clients for Elasticsearch")))Java, Elasticsearch comes with two built-in clients
+that you can use in your code:
+
+Node client::
+    The node client ((("node client")))joins a local cluster as a _non data node_. In other
+    words, it doesn't hold any data itself, but it knows what data lives
+    on which node in the cluster, and can forward requests directly
+    to the correct node.
+
+Transport client::
+    The lighter-weight ((("transport client")))transport client can be used to send requests to
+    a remote cluster. It doesn't join the cluster itself, but simply
+    forwards requests to a node in the cluster.
+
+Both Java clients talk to the cluster over port _9300_, using((("port 9300 for Java clients"))) the native
+Elasticsearch _transport_ protocol.  The nodes in the cluster also communicate
+with each other over port 9300. If this port is not open, your nodes will
+not be able to form a cluster.
+
+[TIP]
+====
+The Java client must be from the same version of Elasticsearch as the nodes;
+otherwise, they may not be able to understand each other.
+====
+
+More information about the Java clients can be found in the Java API section
+of the http://www.elasticsearch.org/guide/[Guide].
+
+==== RESTful API with JSON over HTTP
+
+All other languages can communicate with Elasticsearch((("port 9200 for non-Java clients"))) over port _9200_ using
+a ((("RESTful API, communicating with Elasticseach")))RESTful API, accessible with your favorite web client. In fact, as you have
+seen, you can even talk to Elasticsearch from the command line by using the
+`curl` command.((("curl command", "talking to Elasticsearch with")))
+
+NOTE: Elasticsearch provides official clients((("clients", "other than Java"))) for several languages--Groovy,
+JavaScript, .NET, PHP, Perl, Python, and Ruby--and there are numerous
+community-provided clients and integrations, all of which can be found in the
+http://www.elasticsearch.org/guide/[Guide].
+
+A request to Elasticsearch consists of the same parts as any HTTP request:((("HTTP requests")))((("requests to Elasticsearch")))
+
+[source,js]
+--------------------------------------------------
+curl -X<VERB> '<PROTOCOL>://<HOST>/<PATH>?<QUERY_STRING>' -d '<BODY>'
+--------------------------------------------------
+
+The parts marked with `< >` above are:
+
+[horizontal]
+`VERB`::            The appropriate HTTP _method_ or _verb_: `GET`, `POST`, `PUT`, `HEAD`, or `DELETE`.
+`PROTOCOL`::        Either `http` or `https` (if you have an `https` proxy in front of Elasticsearch.)
+`HOST`::            The hostname of any node in your Elasticsearch cluster, or +localhost+ for a node on your local machine.
+`PORT`::            The port running the Elasticsearch HTTP service, which defaults to `9200`.
+`QUERY_STRING`::    Any optional query-string parameters (for example `?pretty` will _pretty-print_  the JSON response to make it easier to read.)
+`BODY`::            A JSON-encoded request body (if the request needs one.)
+
+
+For instance, to count the number of documents in the cluster, we could use this:
+
+[source,js]
+--------------------------------------------------
+curl -XGET 'http://localhost:9200/_count?pretty' -d '
+{
+    "query": {
+        "match_all": {}
+    }
+}
+'
+--------------------------------------------------
+
+Elasticsearch returns an HTTP status code like `200 OK` and (except for `HEAD`
+requests) a JSON-encoded response body. The preceding `curl` request would respond
+with a JSON body like the following:
+
+[source,js]
+--------------------------------------------------
+{
+    "count" : 0,
+    "_shards" : {
+        "total" : 5,
+        "successful" : 5,
+        "failed" : 0
+    }
+}
+--------------------------------------------------
+
+We don't see the HTTP headers in the response because we didn't ask `curl` to
+display them. To see the headers, use the `curl` command with the `-i`
+switch:
+
+[source,js]
+--------------------------------------------------
+curl -i -XGET 'localhost:9200/'
+--------------------------------------------------
+
+For the rest of the book, we will show these `curl` examples using a shorthand
+format that leaves out all the bits that are the same in every request,
+like the hostname and port, and the `curl` command itself. Instead of showing
+a full request like
+
+[source,js]
+--------------------------------------------------
+curl -XGET 'localhost:9200/_count?pretty' -d '
+{
+    "query": {
+        "match_all": {}
+    }
+}'
+--------------------------------------------------
+
+we will show it in this shorthand format:
+
+[source,js]
+--------------------------------------------------
+GET /_count
+{
+    "query": {
+        "match_all": {}
+    }
+}
+--------------------------------------------------
+// SENSE: 010_Intro/15_Count.json
+
+In fact, this is the same format that is used by the ((("Marvel", "Sense console")))((("Sense console (Marvel plugin)", "curl requests in")))Sense console that we
+installed with <<marvel,Marvel>>. If in the online version of this book, you can open and run this code example in
+Sense by clicking the View in Sense link above.

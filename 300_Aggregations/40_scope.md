@@ -1,0 +1,197 @@
+
+[[_scoping_aggregations]]
+== Scoping Aggregations
+
+With all of the aggregation examples given so far, you may have noticed that we
+omitted a `query` from the search request. ((("queries", "in aggregations")))((("aggregations", "scoping"))) The entire request was
+simply an aggregation.
+
+Aggregations can be run at the same time as search requests, but you need to
+understand a new concept: _scope_. ((("scoping aggregations", id="ix_scopeaggs", range="startofrange"))) By default, aggregations operate in the same 
+scope as the query.  Put another way, aggregations are calculated on the set of 
+documents that match your query.
+
+Let's look at one of our first aggregation examples:
+
+[source,js]
+--------------------------------------------------
+GET /cars/transactions/_search?search_type=count
+{
+    "aggs" : {
+        "colors" : {
+            "terms" : {
+              "field" : "color"
+            }
+        }
+    }
+}
+--------------------------------------------------
+// SENSE: 300_Aggregations/40_scope.json
+
+You can see that the aggregation is in isolation.  In reality, Elasticsearch
+assumes "no query specified" is equivalent to "query all documents." The preceding
+query is internally translated as follows:
+
+[source,js]
+--------------------------------------------------
+GET /cars/transactions/_search?search_type=count
+{
+    "query" : {
+        "match_all" : {}
+    },
+    "aggs" : {
+        "colors" : {
+            "terms" : {
+              "field" : "color"
+            }
+        }
+    }
+}
+--------------------------------------------------
+// SENSE: 300_Aggregations/40_scope.json
+
+The aggregation always operates in the scope of the query, so an isolated
+aggregation really operates in the scope of ((("match_all query", "isolated aggregations in scope of")))a `match_all` query--that is to say,
+all documents.
+
+Once armed with the knowledge of scoping, we can start to customize 
+aggregations even further.  All of our previous examples calculated statistics
+about _all_ of the data: top-selling cars, average price of all cars, most sales
+per month, and so forth.
+
+With scope, we can ask questions such as "How many colors are Ford cars are
+available in?"  We do this by simply adding a query to the request (in this case
+a `match` query):
+
+[source,js]
+--------------------------------------------------
+GET /cars/transactions/_search  <1>
+{
+    "query" : {
+        "match" : {
+            "make" : "ford"
+        }
+    },
+    "aggs" : {
+        "colors" : {
+            "terms" : {
+              "field" : "color"
+            }
+        }
+    }
+}
+--------------------------------------------------
+// SENSE: 300_Aggregations/40_scope.json
+<1> We are omitting `search_type=count` so((("search_type", "count"))) that search hits are returned too.
+
+By omitting the `search_type=count` this time, we can see both the search
+results and the aggregation results:
+
+[source,js]
+--------------------------------------------------
+{
+...
+   "hits": {
+      "total": 2,
+      "max_score": 1.6931472,
+      "hits": [
+         {
+            "_source": {
+               "price": 25000,
+               "color": "blue",
+               "make": "ford",
+               "sold": "2014-02-12"
+            }
+         },
+         {
+            "_source": {
+               "price": 30000,
+               "color": "green",
+               "make": "ford",
+               "sold": "2014-05-18"
+            }
+         }
+      ]
+   },
+   "aggregations": {
+      "colors": {
+         "buckets": [
+            {
+               "key": "blue",
+               "doc_count": 1
+            },
+            {
+               "key": "green",
+               "doc_count": 1
+            }
+         ]
+      }
+   }
+}
+--------------------------------------------------
+
+
+This may seem trivial, but it is the key to advanced and powerful dashboards.
+You can transform any static dashboard into a real-time data exploration device
+by adding a search bar.((("dashboards", "adding a search bar")))  This allows the user to search for terms and see all
+of the graphs (which are powered by aggregations, and thus scoped to the query)
+update in real time.  Try that with Hadoop!
+
+[float]
+=== Global Bucket
+
+You'll often want your aggregation to be scoped to your query.  But sometimes
+you'll want to search for a subset of data, but aggregate across _all_ of
+your data.((("aggregations", "scoping", "global bucket")))((("scoping aggregations", "using a global bucket")))
+
+For example, say you want to know the average price of Ford cars compared to the
+average price of _all_ cars. We can use a regular aggregation (scoped to the query) 
+to get the first piece of information.  The second piece of information can be 
+obtained by using((("buckets", "global")))((("global bucket"))) a `global` bucket.
+
+The +global+ bucket will contain _all_ of your documents, regardless of the query 
+scope; it bypasses the scope completely.  Because it is a bucket, you can nest
+aggregations inside it as usual:
+
+[source,js]
+--------------------------------------------------
+GET /cars/transactions/_search?search_type=count
+{
+    "query" : {
+        "match" : {
+            "make" : "ford"
+        }
+    },
+    "aggs" : {
+        "single_avg_price": {
+            "avg" : { "field" : "price" } <1>
+        },
+        "all": {
+            "global" : {}, <2>
+            "aggs" : {
+                "avg_price": {
+                    "avg" : { "field" : "price" } <3>
+                }
+                
+            }
+        }
+    }
+}
+--------------------------------------------------
+// SENSE: 300_Aggregations/40_scope.json
+<1> This aggregation operates in the query scope (for example, all docs matching +ford+)
+<2> The `global` bucket has no parameters.
+<3> This aggregation operates on the all documents, regardless of the make.
+
+
+The +single_avg_price+ metric calculation is based on all documents that fall under the
+query scope--all +ford+ cars.  The +avg_price+ metric is nested under a 
+`global` bucket, which means it ignores scoping entirely and calculates on 
+all the documents.  The average returned for that aggregation represents
+the average price of all cars.
+
+If you've made it this far in the book, you'll recognize the mantra: use a filter
+wherever you can.  The same applies to aggregations, and in the next chapter
+we show you how to filter an aggregation instead of just limiting the query
+scope.((("scoping aggregations", range="endofrange", startref="ix_scopeaggs")))
+

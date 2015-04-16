@@ -1,0 +1,145 @@
+[[geo-bounds-agg]]
+=== geo_bounds Aggregation
+
+In our <<geohash-grid-agg,previous example>>, we filtered our results by using a
+bounding box that covered the greater New York area.((("aggregations", "geo_bounds")))((("geo_bounds aggregation")))  However, our results
+were all located in downtown Manhattan.  When displaying a map for our user, it
+makes sense to zoom into the area of the map that contains the data; there
+is no point in showing lots of empty space.
+
+The `geo_bounds` aggregation does exactly this: it calculates the smallest
+bounding box that is needed to encapsulate all of the geo-points:
+
+[source,json]
+----------------------------
+GET /attractions/restaurant/_search?search_type=count
+{
+  "query": {
+    "filtered": {
+      "filter": {
+        "geo_bounding_box": {
+          "location": {
+            "top_left": {
+              "lat":  40,8,
+              "lon": -74.1
+            },
+            "bottom_right": {
+              "lat":  40.4,
+              "lon": -73.9
+            }
+          }
+        }
+      }
+    }
+  },
+  "aggs": {
+    "new_york": {
+      "geohash_grid": {
+        "field":     "location",
+        "precision": 5
+      }
+    },
+    "map_zoom": { <1>
+      "geo_bounds": {
+        "field":     "location"
+      }
+    }
+  }
+}
+----------------------------
+<1> The `geo_bounds` aggregation will calculate the smallest bounding box required to encapsulate all of the documents matching our query. 
+
+The response now includes a bounding box that we can use to zoom our map:
+
+[source,json]
+----------------------------
+...
+"aggregations": {
+  "map_zoom": {
+     "bounds": {
+        "top_left": {
+           "lat":  40.722,
+           "lon": -74.011
+        },
+        "bottom_right": {
+           "lat":  40.715,
+           "lon": -73.983
+        }
+     }
+  },
+...
+----------------------------
+
+In fact, we could even use the `geo_bounds` aggregation inside each geohash
+cell,((("geohash cells, geo_bounds aggregation in"))) in case the geo-points inside a cell are clustered in just a part of the
+cell:
+
+[source,json]
+----------------------------
+GET /attractions/restaurant/_search?search_type=count
+{
+  "query": {
+    "filtered": {
+      "filter": {
+        "geo_bounding_box": {
+          "location": {
+            "top_left": {
+              "lat":  40,8,
+              "lon": -74.1
+            },
+            "bottom_right": {
+              "lat":  40.4,
+              "lon": -73.9
+            }
+          }
+        }
+      }
+    }
+  },
+  "aggs": {
+    "new_york": {
+      "geohash_grid": {
+        "field":     "location",
+        "precision": 5
+      },
+      "aggs": {
+        "cell": { <1>
+          "geo_bounds": {
+            "field": "location"
+          }
+        }
+      }
+    }
+  }
+}
+----------------------------
+<1> The `cell_bounds` subaggregation is calculated for every geohash cell.
+
+Now the ((("cell_bounds aggregation")))points in each cell have a bounding box:
+
+[source,json]
+----------------------------
+...
+"aggregations": {
+  "new_york": {
+     "buckets": [
+        {
+           "key": "dr5rs",
+           "doc_count": 2,
+           "cell": {
+              "bounds": {
+                 "top_left": {
+                    "lat":  40.722,
+                    "lon": -73.989
+                 },
+                 "bottom_right": {
+                    "lat":  40.719,
+                    "lon": -73.983
+                 }
+              }
+           }
+        },
+...
+----------------------------
+
+

@@ -1,0 +1,89 @@
+=== Revisiting the Social-graph
+
+We are going to end this chapter with a bit of a thought experiment by
+revisiting the social-graph example that we used earlier in
+<<_social_graph_filter>>.
+
+In that example, we wanted to find the tweets of all the users whom a particular
+person followed.  Since it is possible for a user to follow a large number of
+users, we used the lookup capability of the `terms` filter.
+This allowed us to avoid sending a list of 10,000 terms in the query itself.
+
+But even though we have optimized the delivery of terms to the filter (e.g.
+extracting from a document instead of sending over the wire), the underlying
+process is fundamentally the same.  We are performing 10,000 individual term
+lookups.  And this only gets worse as you continue to follow more people.
+
+So while the `lookup` capability has helped considerably, it is a band-aid and not
+a true fix.  The problem isn't the filter...the problem is how the data has
+been organized.  In our old example, we had a document-per-user which listed
+who that user followed:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index/user_following/1
+{ "following" : [2, 4] }
+--------------------------------------------------
+
+This document is updated as needed, and used for the `terms` filter lookup.
+But by centralizing the data into a single document, we are forced to use a
+`terms` filter with potentially thousands of terms (regardless of request
+body vs lookup method).
+
+Let's invert the structure and decentralize the data.  Instead of storing _who
+a user follows_ in a separate document, let's store _who a user is followed by_
+right in the `user` document.  Our user documents become the source of "following data", rather than a secondary document:
+
+[source,js]
+--------------------------------------------------
+PUT /my_index/users/2
+{
+    "name" : "Zach",
+    "joined" : "2014-10-28",
+    "followed_by" : [1, 5, 10]
+}
+--------------------------------------------------
+
+And now, instead of a `terms` filter with thousands of terms, we can
+use just a single `term` filter looking for a single term:
+
+[source,js]
+--------------------------------------------------
+GET /my_index/users/_search
+{
+  "query" : {
+    "filtered" : {
+      "filter" : {
+        "term" : {
+          "followed_by" : 1
+        }
+      }
+    }
+  }
+}
+--------------------------------------------------
+
+The results are the same as before, but we've boiled our query down to a single
+filter. For both performance and simplicity,we gain several advantages:
+
+- Avoids a document lookup to get the list of IDs.  Even if this is fast, it is
+still slower than not doing a lookup at all
+- Caches a single filter instead of potentially thousands
+- The overhead of updating documents is identical because in both cases, we only
+update a single document.
+- Avoids a secondary document type
+- Simplifies the query structure
+
+All of that from simply reorganizing our data.  You'll see that this is
+a very common pattern in Elasticsearch.  There are many ways to tackle any
+particular problem -- but certain arrangements of data may work better.
+
+In particular, try to retrain your brain from thinking in terms of denormalized
+relations.  The first architecture (centralized document with all "following"
+data) is very natural to people coming from a relational database.
+
+Moving that data to the user documents itself may seem unnatural, but in many
+cases can work substantially better as seen here.  When thinking about data
+organization and query structure, think about how you would like to search
+for your data rather than how you would like to store it.
+

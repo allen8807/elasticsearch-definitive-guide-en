@@ -1,0 +1,8 @@
+include::056_Sorting/85_Sorting.asciidoc[]
+
+include::056_Sorting/88_String_sorting.asciidoc[]
+
+include::056_Sorting/90_What_is_relevance.asciidoc[]
+
+include::056_Sorting/95_Fielddata.asciidoc[]
+
