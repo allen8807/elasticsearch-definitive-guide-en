@@ -59,7 +59,7 @@
    * [Important clauses](054_Query_DSL/70_Important_clauses.md)
    * [Queries with filters](054_Query_DSL/75_Queries_with_filters.md)
    * [Validating queries](054_Query_DSL/80_Validating_queries.md)
-* [056_Sorting](056_Sorting/00_Intro.md)
+* [056_Sorting](056_sorting/00_intro.md)
    * [85_Sorting](056_Sorting/85_Sorting.md)
    * [88_String_sorting](056_Sorting/88_String_sorting.md)
    * [90_What_is_relevance](056_Sorting/90_What_is_relevance.md)

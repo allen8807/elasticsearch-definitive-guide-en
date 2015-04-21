@@ -1,13 +1,8 @@
-ifndef::es_build[= placeholder0]
 
-[[getting-started]]
-[role="pagenumrestart"]
-= Getting Started
+# Getting Started
 
-[partintro]
---
 _Elasticsearch_ is a real-time distributed search and analytics engine. It
-allows you((("Elasticsearch", "defined"))) to explore your data at a speed and at a scale never before
+allows you to explore your data at a speed and at a scale never before
 possible. It is used for full-text search, structured search, analytics, and all three
 in combination:
 
@@ -28,7 +23,7 @@ startups like Datadog and Klout to prototype ideas and to turn them into
 scalable solutions. Elasticsearch can run on your laptop, or scale out to
 hundreds of servers and petabytes of data.
 
-No individual part of Elasticsearch is new or revolutionary.((("full text search"))) Full-text search
+No individual part of Elasticsearch is new or revolutionary. Full-text search
 has been done before, as have analytics systems((("distributed databases")))((("analytics systems"))) and distributed databases. The
 revolution is the combination of these individually useful parts into a
 single, coherent, real-time application. It has a low barrier to entry for the

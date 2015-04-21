@@ -1,3 +1,4 @@
+<span id="intro"></span>
 === Installing Elasticsearch
 
 The easiest way to understand what Elasticsearch can do for you is to
@@ -118,7 +119,7 @@ curl -XPOST 'http://localhost:9200/_shutdown'
 --------------------------------------------------
 
 
-==== Viewing Marvel and Sense
+==== [Viewing](#intro) Marvel and Sense
 
 If you installed the <<marvel,Marvel>> management ((("Marvel", "viewing")))and monitoring tool, you can
 view it in a web browser by visiting
