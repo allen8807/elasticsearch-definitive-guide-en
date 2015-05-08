@@ -35,7 +35,7 @@ requested, enriches the results with metadata and search snippet highlighting.
 Once the coordinating node receives all results, it assembles them into a
 single response that it returns to the client.
 
-## Deep Pagination
+##### Deep Pagination
 ****
 
 The query-then-fetch process supports pagination with the `from` and `size`

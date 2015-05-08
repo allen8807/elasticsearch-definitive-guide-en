@@ -15,21 +15,21 @@ However, the most generally useful value is some arbitrary string, to avoid
 the _bouncing results_ problem.<!--((("bouncing results problem")))
 -->
 
-####Bouncing Results
-****
+ #####Bouncing Results
+ ****
 
-Imagine that you are sorting your results by a `timestamp` field, and
+ Imagine that you are sorting your results by a `timestamp` field, and
 two documents have the same timestamp.  Because search requests are
 round-robined between all available shard copies, these two documents may be
 returned in one order when the request is served by the primary, and in
 another order when served by the replica.
 
-This is known as the _bouncing results_ problem: every time the user refreshes
+ This is known as the _bouncing results_ problem: every time the user refreshes
 the page, the results appear in a different order. The problem can be avoided by always using the same shards for the same user,
 which can be done by setting the `preference` parameter to an arbitrary string
 like the user's session ID.
 
-****
+ ****
 
 ### timeout
 
@@ -56,6 +56,7 @@ how many shards responded successfully:
 ```
 
 [1] The search request timed out.
+
 [2] One shard out of five failed to respond in time.
 
 If all copies of a shard fail for other reasons--perhaps because of a
