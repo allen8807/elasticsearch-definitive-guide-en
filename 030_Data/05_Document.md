@@ -1,3 +1,119 @@
+
+## What Is a Document?
+
+Most entities or objects in most applications can be serialized into a JSON
+object, with keys and values.<!--((("objects")))((("JSON", "objects")))((("keys and values")))--> A _key_ is the name of a field or property,
+and a _value_ can <!--((("values")))-->be a string, a number, a Boolean, another object, an array
+of values, or some other specialized type such as a string representing a date
+or an object representing a geolocation:
+
+``` js
+{
+    "name":         "John Smith",
+    "age":          42,
+    "confirmed":    true,
+    "join_date":    "2014-06-01",
+    "home": {
+        "lat":      51.5,
+        "lon":      0.1
+    },
+    "accounts": [
+        {
+            "type": "facebook",
+            "id":   "johnsmith"
+        },
+        {
+            "type": "twitter",
+            "id":   "johnsmith"
+        }
+    ]
+}
+```
+
+Often, we use the terms _object_ and _document_ interchangeably. However,
+there is a distinction.<!--((("objects", "documents versus")))((("documents", "objects versus")))-->  An object is just a JSON object--similar to what is
+known as a hash, hashmap, dictionary, or associative array. Objects may contain
+other objects. In Elasticsearch, the term _document_ has a specific meaning. It refers
+to the top-level, or root object that<!--((("root object")))--> is serialized into JSON and
+stored in Elasticsearch under a unique ID.
+
+### Document Metadata
+
+A document doesn't consist only of its data.<!--((("documents", "metadata")))--> It also has
+_metadata_&#x2014;information _about_ the document.<!--((("metadata, document")))--> The three required metadata
+elements are as follows:
+
+
+ `_index`::
+   Where the document lives
+
+ `_type`::
+   The class of object that the document represents
+
+ `_id`::
+   The unique identifier for the document
+
+#### _index
+
+An _index_ is like a database in a relational database; it's the place
+we store and index related data.<!--((("indices", "_index, in document metadata")))-->
+
+> TIP
+***
+Actually, in Elasticsearch, our data is stored and indexed in _shards_,
+while an index is just a logical namespace that groups together one or more
+shards.<!--((("shards", "grouped in indices")))--> However, this is an internal detail; our application shouldn't care
+about shards at all.  As far as our application is concerned, our documents
+live in an _index_. Elasticsearch takes care of the details.
+***
+
+We cover how to create and manage indices ourselves in index-management,
+but for now we will let Elasticsearch create the index for us.  All we have to
+do is choose an index name.  This name must be lowercase, cannot begin with an
+underscore, and cannot contain commas. Let's use `website` as our index name.
+
+#### _type
+
+In applications, we use objects to represent _things_ such as a user, a blog
+post, a comment, or an email. Each object belongs to a _class_ that defines
+the properties or data associated with an object. Objects in the `user` class
+may have a name, a gender, an age, and an email address.
+
+In a relational database, we usually store objects of the same class in the
+same table, because they share the same data structure. For the same reason, in
+Elasticsearch we use the same _type_ for <!--((("types", "&#x5f;type, in document metadata)))-->documents that represent the same
+class of _thing_, because they share the same data structure.
+
+Every _type_ has its own _mapping_ or schema <!--((("mapping (types)")))((("schema definition, types")))-->definition, which
+defines the data structure for documents of that type, much like the columns
+in a database table. Documents of all types can be stored in the same index,
+but the _mapping_ for the type tells Elasticsearch how the data in each
+document should be indexed.
+
+We show how to specify and manage mappings in _mapping_, but for now
+we will rely on Elasticsearch to detect our document's data structure
+automatically.
+
+A `_type` name can be lowercase or uppercase, but shouldn't begin with an
+underscore or contain commas.<!--((("types", "names of")))-->  We will use `blog` for our type name.
+
+#### _id
+
+The _ID_ is a string that,<!--((("id", "&#x5f;id, in document metadata")))--> when combined with the `_index` and `_type`,
+uniquely identifies a document in Elasticsearch. When creating a new document,
+you can either provide your own `_id` or let Elasticsearch generate one for
+you.
+
+### Other Metadata
+
+There are several other metadata elements, which are presented in
+_mapping_. With the elements listed previously, we are already able to store a
+document in Elasticsearch and to retrieve it by ID--in other words, to use
+Elasticsearch as a document store.
+
+
+
+<!--
 [[document]]
 === What Is a Document?
 
@@ -112,3 +228,5 @@ There are several other metadata elements, which are presented in
 <<mapping>>. With the elements listed previously, we are already able to store a
 document in Elasticsearch and to retrieve it by ID--in other words, to use
 Elasticsearch as a document store.
+
+-->
